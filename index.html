@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kitchen to Doorstep - Delivery Time Estimator</title>
+<style>
+  :root {
+    --basil: #17352a;
+    --basil-soft: #a9c4b8;
+    --tomato: #d62839;
+    --saffron: #f4b41a;
+    --paper: #fffef9;
+    --ink: #1d2b25;
+    --muted: #6b6a60;
+    --line: #cfc9b8;
+  }
+  :root { --check: rgba(214,40,57,.16); }
+  :root[data-theme="blueberry"] { --basil: #1b2a5c; --basil-soft: #b9c4ee; --tomato: #3b5bdb; --saffron: #ffd43b; --check: rgba(59,91,219,.15); }
+  :root[data-theme="plum"] { --basil: #3b1f4a; --basil-soft: #d9bfe6; --tomato: #c2255c; --saffron: #ffa94d; --check: rgba(194,37,92,.14); }
+  :root[data-theme="mango"] { --basil: #6b2a0c; --basil-soft: #f0c8ae; --tomato: #e8590c; --saffron: #ffe066; --check: rgba(232,89,12,.15); }
+
+  .themes { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: var(--basil-soft); font-size: 0.9rem; }
+  .themes button { width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 2px solid #fff; cursor: pointer; }
+  .themes button[aria-pressed="true"] { outline: 3px solid var(--saffron); outline-offset: 2px; }
+  .themes button:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+  [data-theme-btn="basil"] { background: linear-gradient(135deg, #17352a 50%, #d62839 50%); }
+  [data-theme-btn="blueberry"] { background: linear-gradient(135deg, #1b2a5c 50%, #3b5bdb 50%); }
+  [data-theme-btn="plum"] { background: linear-gradient(135deg, #3b1f4a 50%, #c2255c 50%); }
+  [data-theme-btn="mango"] { background: linear-gradient(135deg, #6b2a0c 50%, #e8590c 50%); }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    line-height: 1.4;
+    background-color: #fff;
+    background-image:
+      repeating-linear-gradient(0deg, var(--check) 0 28px, transparent 28px 56px),
+      repeating-linear-gradient(90deg, var(--check) 0 28px, transparent 28px 56px);
+  }
+
+  .banner { background: var(--basil); color: #fff; padding: 28px 20px; border-bottom: 6px solid var(--saffron); }
+  .banner div { max-width: 1000px; margin: 0 auto; }
+  .banner h1 { margin: 0 0 6px; font-family: Georgia, "Times New Roman", serif; font-size: 2.6rem; letter-spacing: -0.02em; }
+  .banner p { margin: 0; color: var(--basil-soft); font-size: 1.05rem; }
+
+  .app { max-width: 1000px; margin: 0 auto; padding: 28px 20px 56px; }
+  .layout { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: start; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+  .presets span { font-weight: 700; margin-right: 4px; background: #fff; padding: 4px 10px; border-radius: 999px; }
+  .presets button {
+    font: inherit; font-size: 0.9rem; color: var(--ink); background: #fff;
+    border: 2px solid var(--basil); border-radius: 999px; padding: 5px 14px; cursor: pointer;
+  }
+  .presets button:hover { background: var(--basil); color: #fff; }
+
+  /* Order ticket */
+  .ticket {
+    position: relative;
+    background: var(--paper);
+    padding: 26px 26px 34px;
+    filter: drop-shadow(0 8px 12px rgba(0,0,0,.2));
+    margin-bottom: 14px;
+  }
+  .ticket::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+    background:
+      linear-gradient(135deg, var(--paper) 25%, transparent 25%) -8px 0 / 16px 16px,
+      linear-gradient(225deg, var(--paper) 25%, transparent 25%) -8px 0 / 16px 16px;
+  }
+  .ticket-head { text-align: center; padding-bottom: 14px; border-bottom: 2px dashed var(--line); margin-bottom: 18px; }
+  .ticket-head h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.7rem; }
+  .ticket-head p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+  .section { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 2px dashed var(--line); }
+  .section:last-of-type { border-bottom: 0; margin-bottom: 4px; padding-bottom: 0; }
+  .section h3 { margin: 0 0 14px; font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; color: var(--tomato); }
+  .field { margin: 0 0 16px; padding: 0; border: 0; }
+  .field:last-child { margin-bottom: 0; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .row label, legend { font-weight: 600; padding: 0; }
+  legend { margin-bottom: 8px; }
+  .row output { font-weight: 700; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--tomato); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { position: relative; }
+  .chip input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .chip span {
+    display: block; padding: 7px 14px; border: 2px solid var(--line);
+    border-radius: 999px; background: #fff; transition: background .15s, color .15s, border-color .15s;
+  }
+  .chip input:checked + span { background: var(--basil); color: #fff; border-color: var(--basil); }
+  .chip input:focus-visible + span, input[type=range]:focus-visible, button:focus-visible {
+    outline: 3px solid var(--tomato); outline-offset: 2px;
+  }
+  .ticket-foot { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 18px 0 0; }
+
+  /* Result panel */
+  .pass {
+    position: sticky; top: 20px;
+    background: var(--basil); color: #fff;
+    border-radius: 16px; padding: 26px; text-align: center;
+    box-shadow: 0 8px 18px rgba(0,0,0,.22);
+  }
+  .pass h2 { margin: 0 0 4px; font-family: Georgia, "Times New Roman", serif; font-size: 1.3rem; }
+  .status { height: 18px; margin: 0 0 6px; font-size: 0.85rem; color: var(--basil-soft); }
+  .dial { position: relative; width: 220px; height: 220px; margin: 0 auto 14px; }
+  .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dial circle { fill: none; stroke-width: 14; }
+  .track { stroke: rgba(255,255,255,.15); }
+  .prog { stroke: var(--saffron); stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+  .dial-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #time { font-size: 3.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .dial-text small { font-size: 1rem; color: var(--basil-soft); }
+  .meta { margin: 0 0 8px; color: var(--basil-soft); font-size: 0.95rem; }
+  .meta strong { color: var(--saffron); }
+
+  .route { display: flex; align-items: center; gap: 10px; margin: 16px 0; font-size: 1.5rem; }
+  .line { position: relative; flex: 1; height: 28px; border-bottom: 3px dashed var(--basil-soft); }
+  .rider { position: absolute; left: calc(100% - 1.8rem); bottom: -6px; font-size: 1.6rem; }
+
+  .error-box { display: none; }
+  .error-box p { color: #ffc4bd; margin: 12px 0 14px; }
+  .error-box button {
+    font: inherit; font-weight: 700; background: var(--saffron); color: var(--basil);
+    border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+  }
+  .pass[data-state=loading] .ready-box { opacity: .55; }
+  .pass[data-state=error] .ready-box { display: none; }
+  .pass[data-state=error] .error-box { display: block; }
+
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+    .pass { position: static; }
+    .banner h1 { font-size: 2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .prog, .chip span { transition: none; }
+  }
+</style>
+</head>
+<body>
+<header class="banner">
+  <div>
+    <h1>Kitchen to doorstep</h1>
+    <p>Fill in the order ticket and see how long dinner takes to arrive.</p>
+    <nav class="themes" aria-label="Color theme">
+      <span>Color theme:</span>
+      <button type="button" data-theme-btn="basil" aria-label="Basil and tomato" aria-pressed="true"></button>
+      <button type="button" data-theme-btn="blueberry" aria-label="Blueberry" aria-pressed="false"></button>
+      <button type="button" data-theme-btn="plum" aria-label="Plum" aria-pressed="false"></button>
+      <button type="button" data-theme-btn="mango" aria-label="Mango" aria-pressed="false"></button>
+    </nav>
+  </div>
+</header>
+
+<main class="app">
+  <div class="layout">
+    <section>
+      <div class="presets">
+        <span>Try a scenario:</span>
+        <button type="button" data-preset="clear">Quick and clear</button>
+        <button type="button" data-preset="rush">Rainy rush hour</button>
+        <button type="button" data-preset="night">Long night trip</button>
+        <button type="button" id="reset">Reset</button>
+      </div>
+
+      <div class="ticket">
+        <div class="ticket-head">
+          <h2>Order ticket</h2>
+          <p>No. <span id="tno"></span> on <span id="tdate"></span></p>
+        </div>
+        <div id="sections"></div>
+        <p class="ticket-foot">The estimate updates as you change the order.</p>
+      </div>
+    </section>
+
+    <aside class="pass" id="result" data-state="loading" aria-live="polite">
+      <h2>Estimated delivery time</h2>
+      <p class="status" id="status"></p>
+      <div class="ready-box">
+        <div class="dial">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="track" cx="100" cy="100" r="84"></circle>
+            <circle class="prog" id="ring" cx="100" cy="100" r="84"></circle>
+          </svg>
+          <div class="dial-text"><span id="time">--</span><small>minutes</small></div>
+        </div>
+        <p class="meta" id="eta"></p>
+        <p class="meta" id="summary"></p>
+        <div class="route" aria-hidden="true">
+          <span>🍳</span>
+          <div class="line"><span class="rider" id="rider">🛵</span></div>
+          <span>🏠</span>
+        </div>
+        <p class="meta">Typical error of this model: about <strong>6 minutes</strong>.</p>
+      </div>
+      <div class="error-box">
+        <p>Can’t reach the prediction server. Start app.py in PyCharm, then try again.</p>
+        <button type="button" id="retry">Try again</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+  const API = "http://127.0.0.1:5000";
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  };
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const groupLabels = { Weather: "Weather", Traffic_Level: "Traffic", Time_of_Day: "Time of day", Vehicle_Type: "Vehicle" };
+  const icons = {
+    Weather: { Clear: "☀️", Rainy: "🌧️", Foggy: "🌫️", Snowy: "❄️", Windy: "💨", Stormy: "⛈️", Cloudy: "☁️" },
+    Traffic_Level: { Low: "🟢", Medium: "🟡", High: "🔴" },
+    Time_of_Day: { Morning: "🌅", Afternoon: "☀️", Evening: "🌆", Night: "🌙" },
+    Vehicle_Type: { Bike: "🏍️", Scooter: "🛵", Car: "🚗" }
+  };
+  const preferredOrder = {
+    Traffic_Level: ["Low", "Medium", "High"],
+    Time_of_Day: ["Morning", "Afternoon", "Evening", "Night"]
+  };
+  let options = {
+    Weather: ["Clear", "Rainy", "Foggy", "Snowy", "Windy"],
+    Traffic_Level: ["Low", "Medium", "High"],
+    Time_of_Day: ["Morning", "Afternoon", "Evening", "Night"],
+    Vehicle_Type: ["Bike", "Scooter", "Car"]
+  };
+  const sliderDefs = {
+    Preparation_Time_min: { label: "Time in the kitchen", min: 1, max: 60, step: 1, fmt: (v) => v + " min" },
+    Distance_km: { label: "Distance", min: 0.5, max: 30, step: 0.1, fmt: (v) => (+v).toFixed(1) + " km" },
+    Courier_Experience_yrs: { label: "Courier experience", min: 0, max: 15, step: 0.5, fmt: (v) => v + " yr" }
+  };
+  const sections = [
+    { title: "In the kitchen", items: ["Preparation_Time_min"] },
+    { title: "On the road", items: ["Distance_km", "Traffic_Level", "Vehicle_Type", "Courier_Experience_yrs"] },
+    { title: "Conditions", items: ["Weather", "Time_of_Day"] }
+  ];
+  const defaults = {
+    Distance_km: 8, Preparation_Time_min: 15, Courier_Experience_yrs: 3,
+    Weather: "Clear", Traffic_Level: "Medium", Time_of_Day: "Afternoon", Vehicle_Type: "Bike"
+  };
+  const presets = {
+    clear: { Distance_km: 2.5, Preparation_Time_min: 10, Weather: "Clear", Traffic_Level: "Low", Time_of_Day: "Afternoon" },
+    rush:  { Distance_km: 8, Preparation_Time_min: 15, Weather: "Rainy", Traffic_Level: "High", Time_of_Day: "Evening" },
+    night: { Distance_km: 15, Preparation_Time_min: 20, Weather: "Clear", Traffic_Level: "Low", Time_of_Day: "Night" }
+  };
+  let state = { ...defaults };
+
+  function sortOptions(key, list) {
+    const order = preferredOrder[key];
+    if (!order) return list.slice().sort();
+    return list.slice().sort((a, b) => {
+      const ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+  }
+
+  function makeSlider(key) {
+    const d = sliderDefs[key], id = "s_" + key;
+    const field = el("div", "field"), row = el("div", "row");
+    const label = el("label", "", d.label);
+    label.htmlFor = id;
+    const out = el("output");
+    out.id = id + "_out";
+    row.append(label, out);
+    const input = document.createElement("input");
+    input.type = "range";
+    input.id = id;
+    input.name = key;
+    input.min = d.min; input.max = d.max; input.step = d.step;
+    field.append(row, input);
+    return field;
+  }
+
+  function makeGroup(key) {
+    const fs = el("fieldset", "field");
+    fs.appendChild(el("legend", "", groupLabels[key]));
+    const wrap = el("div", "chips");
+    options[key].forEach((value) => {
+      const label = el("label", "chip");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = key;
+      input.value = value;
+      const icon = (icons[key] || {})[value];
+      label.append(input, el("span", "", (icon ? icon + " " : "") + value));
+      wrap.appendChild(label);
+    });
+    fs.appendChild(wrap);
+    return fs;
+  }
+
+  function buildForm() {
+    const box = $("sections");
+    box.innerHTML = "";
+    sections.forEach((sec) => {
+      const wrap = el("div", "section");
+      wrap.appendChild(el("h3", "", sec.title));
+      sec.items.forEach((key) => wrap.appendChild(sliderDefs[key] ? makeSlider(key) : makeGroup(key)));
+      box.appendChild(wrap);
+    });
+  }
+
+  function syncUI() {
+    Object.keys(sliderDefs).forEach((key) => {
+      $("s_" + key).value = state[key];
+      $("s_" + key + "_out").textContent = sliderDefs[key].fmt(state[key]);
+    });
+    document.querySelectorAll("#sections input[type=radio]").forEach((i) => {
+      i.checked = state[i.name] === i.value;
+    });
+    $("rider").textContent = icons.Vehicle_Type[state.Vehicle_Type] || "🛵";
+  }
+
+  function applyValues(values) {
+    for (const [key, value] of Object.entries(values)) {
+      if (sliderDefs[key] || (options[key] && options[key].includes(value))) state[key] = value;
+    }
+    syncUI();
+    schedule(0);
+  }
+
+  const CIRC = 2 * Math.PI * 84;
+  const ring = $("ring");
+  ring.style.strokeDasharray = CIRC;
+  ring.style.strokeDashoffset = CIRC;
+
+  function animateNumber(to) {
+    const node = $("time");
+    const from = parseFloat(node.textContent);
+    if (reduceMotion || isNaN(from)) { node.textContent = to.toFixed(1); return; }
+    const start = performance.now(), dur = 450;
+    function step(now) {
+      const t = Math.min((now - start) / dur, 1);
+      node.textContent = (from + (to - from) * t).toFixed(1);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function showResult(minutes) {
+    $("result").dataset.state = "ready";
+    $("status").textContent = "";
+    animateNumber(minutes);
+    ring.style.strokeDashoffset = CIRC * (1 - Math.min(minutes / 120, 1));
+    if (!reduceMotion) {
+      $("rider").animate(
+        [{ left: "0%" }, { left: "calc(100% - 1.8rem)" }],
+        { duration: 1200, easing: "ease-in-out" }
+      );
+    }
+    const arrival = new Date(Date.now() + minutes * 60000);
+    const clock = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    $("eta").innerHTML = "If ordered now, it arrives around <strong>" + clock + "</strong>.";
+    $("summary").textContent = state.Distance_km + " km, " + state.Weather + ", " +
+      state.Traffic_Level + " traffic, " + state.Time_of_Day + ", " + state.Vehicle_Type + ".";
+  }
+
+  let reqId = 0, timer;
+  function schedule(delay = 250) {
+    clearTimeout(timer);
+    timer = setTimeout(predict, delay);
+  }
+
+  async function predict() {
+    const id = ++reqId;
+    $("result").dataset.state = "loading";
+    $("status").textContent = "Updating...";
+    try {
+      const res = await fetch(API + "/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state)
+      });
+      if (!res.ok) throw new Error("Server error " + res.status);
+      const data = await res.json();
+      if (id === reqId) showResult(data.estimated_time_min);
+    } catch (err) {
+      if (id === reqId) $("result").dataset.state = "error";
+    }
+  }
+
+  async function loadOptions() {
+    try {
+      const res = await fetch(API + "/options");
+      if (res.ok) {
+        const data = await res.json();
+        for (const key of Object.keys(groupLabels)) {
+          if (Array.isArray(data[key]) && data[key].length) options[key] = sortOptions(key, data[key]);
+        }
+      }
+    } catch (err) { /* keep the default options */ }
+    for (const key of Object.keys(groupLabels)) {
+      if (!options[key].includes(state[key])) state[key] = options[key][0];
+    }
+  }
+
+  $("sections").addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.type !== "range") return;
+    state[t.name] = parseFloat(t.value);
+    $("s_" + t.name + "_out").textContent = sliderDefs[t.name].fmt(state[t.name]);
+    schedule();
+  });
+  $("sections").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.type !== "radio") return;
+    state[t.name] = t.value;
+    syncUI();
+    schedule(0);
+  });
+  document.querySelectorAll("[data-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => applyValues(presets[btn.dataset.preset]));
+  });
+  $("reset").addEventListener("click", () => applyValues(defaults));
+  $("retry").addEventListener("click", () => schedule(0));
+
+  const themeButtons = document.querySelectorAll("[data-theme-btn]");
+  function setTheme(name) {
+    document.documentElement.dataset.theme = name;
+    themeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeBtn === name)));
+    try { localStorage.setItem("theme", name); } catch (err) { /* storage unavailable */ }
+  }
+  themeButtons.forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.themeBtn)));
+  let savedTheme = "basil";
+  try { savedTheme = localStorage.getItem("theme") || "basil"; } catch (err) { /* ignore */ }
+  setTheme(savedTheme);
+
+  (async function init() {
+    $("tno").textContent = String(100 + Math.floor(Math.random() * 900));
+    $("tdate").textContent = new Date().toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+    await loadOptions();
+    buildForm();
+    syncUI();
+    predict();
+  })();
+</script>
+</body>
+</html>
